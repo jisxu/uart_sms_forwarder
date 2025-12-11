@@ -35,10 +35,9 @@
 
 ### 4. 运行上位机程序
 
-下载 release 中的二进制文件 `uart_sms_forwarder.exe`
+下载 release 中的压缩包，解压之后进入目录，执行
 
 ```bash
-# 进入项目目录
-
+./uart_sms_forwarder
 ```
 
