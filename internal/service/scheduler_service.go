@@ -67,13 +67,38 @@ func (s *SchedulerService) Create(ctx context.Context, task *models.ScheduledTas
 
 // Update 更新定时任务
 func (s *SchedulerService) Update(ctx context.Context, task *models.ScheduledTask) error {
-	task.UpdatedAt = time.Now().UnixMilli()
-	return s.repo.UpdateById(ctx, task)
+	existingTask, err := s.GetById(ctx, task.ID)
+	if err != nil {
+		return err
+	}
+	existingTask.Name = task.Name
+	existingTask.Enabled = task.Enabled
+	existingTask.IntervalDays = task.IntervalDays
+	existingTask.PhoneNumber = task.PhoneNumber
+	existingTask.Content = task.Content
+
+	return s.repo.Save(ctx, existingTask)
 }
 
 // Delete 删除定时任务
 func (s *SchedulerService) Delete(ctx context.Context, id string) error {
 	return s.repo.DeleteById(ctx, id)
+}
+
+// TriggerTask 立即触发执行指定的任务
+func (s *SchedulerService) TriggerTask(ctx context.Context, id string) error {
+	// 获取任务
+	task, err := s.GetById(ctx, id)
+	if err != nil {
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	// 执行任务
+	if err := s.executeTask(*task); err != nil {
+		return fmt.Errorf("执行任务失败: %w", err)
+	}
+
+	return nil
 }
 
 // ==================== 调度相关方法 ====================
@@ -135,7 +160,7 @@ func (s *SchedulerService) checkAndExecuteTasks() error {
 // shouldExecuteTask 判断任务是否应该执行
 func (s *SchedulerService) shouldExecuteTask(task models.ScheduledTask, now time.Time) bool {
 	// 如果从未执行过，则执行
-	if task.LastRunAt == 0 {
+	if task.LastRunAt <= 0 {
 		return true
 	}
 

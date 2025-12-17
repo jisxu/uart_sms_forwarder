@@ -206,6 +206,7 @@ func setupApi(app *orz.App, handlers *Handlers, appConfig *config.AppConfig, log
 	api.POST("/scheduled-tasks", handlers.ScheduledTask.Create)
 	api.PUT("/scheduled-tasks/:id", handlers.ScheduledTask.Update)
 	api.DELETE("/scheduled-tasks/:id", handlers.ScheduledTask.Delete)
+	api.POST("/scheduled-tasks/:id/trigger", handlers.ScheduledTask.Trigger)
 
 	// 健康检查接口（无需认证）
 	e.GET("/health", func(c echo.Context) error {

@@ -37,3 +37,8 @@ export const updateScheduledTask = (id: string, task: Omit<ScheduledTask, 'id' |
 export const deleteScheduledTask = (id: string) => {
     return apiClient.delete<{ message: string }>(`/scheduled-tasks/${id}`);
 };
+
+// 立即触发定时任务
+export const triggerScheduledTask = (id: string) => {
+    return apiClient.post<{ message: string }>(`/scheduled-tasks/${id}/trigger`, {});
+};

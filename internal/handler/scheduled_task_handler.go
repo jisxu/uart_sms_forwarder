@@ -144,6 +144,25 @@ func (h *ScheduledTaskHandler) Delete(c echo.Context) error {
 	})
 }
 
+// Trigger 立即触发执行定时任务
+func (h *ScheduledTaskHandler) Trigger(c echo.Context) error {
+	ctx := c.Request().Context()
+	id := c.Param("id")
+
+	if err := h.schedulerService.TriggerTask(ctx, id); err != nil {
+		h.logger.Error("触发定时任务失败", zap.String("id", id), zap.Error(err))
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "触发任务失败",
+		})
+	}
+
+	h.logger.Info("定时任务已触发执行", zap.String("id", id))
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "任务已触发执行",
+	})
+}
+
 // validateTask 验证任务字段
 func (h *ScheduledTaskHandler) validateTask(task *models.ScheduledTask) error {
 	if task.Name == "" {

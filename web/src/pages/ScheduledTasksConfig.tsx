@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Calendar, Clock, Edit, MessageSquare, Phone, Plus, Trash2} from 'lucide-react';
+import {Calendar, Clock, Edit, MessageSquare, Phone, Plus, Play, Trash2} from 'lucide-react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
     deleteScheduledTask,
     getScheduledTasks,
     type ScheduledTask,
+    triggerScheduledTask,
     updateScheduledTask,
 } from '../api/scheduled_task';
 
@@ -89,6 +90,19 @@ export default function ScheduledTasksConfig() {
         onError: (error: any) => {
             console.error('删除任务失败:', error);
             toast.error(error.response?.data?.error || '删除任务失败');
+        },
+    });
+
+    // 触发任务 mutation
+    const triggerMutation = useMutation({
+        mutationFn: triggerScheduledTask,
+        onSuccess: () => {
+            queryClient.invalidateQueries({queryKey: ['scheduledTasks']});
+            toast.success('任务已触发执行');
+        },
+        onError: (error: any) => {
+            console.error('触发任务失败:', error);
+            toast.error(error.response?.data?.error || '触发任务失败');
         },
     });
 
@@ -167,6 +181,13 @@ export default function ScheduledTasksConfig() {
         }
     };
 
+    // 触发任务
+    const handleTriggerTask = (id: string) => {
+        if (confirm('确定要立即执行这个任务吗？')) {
+            triggerMutation.mutate(id);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-20">
@@ -207,7 +228,7 @@ export default function ScheduledTasksConfig() {
                     {tasks.map((task) => (
                         <Card key={task.id}
                               className="border-gray-200 transition-all duration-200 group relative overflow-hidden">
-                            <CardHeader className="pb-3 border-b border-gray-100 bg-gradient-to-br from-white to-gray-50/30">
+                            <CardHeader className="border-b border-gray-100 bg-gradient-to-br from-white to-gray-50/30">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center space-x-2.5 flex-1 min-w-0">
                                         <div
@@ -230,7 +251,7 @@ export default function ScheduledTasksConfig() {
                                 </div>
                             </CardHeader>
 
-                            <CardContent className="pt-3">
+                            <CardContent className="">
                                 <div className="space-y-2 mb-3">
                                     <div
                                         className="flex items-start space-x-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
@@ -282,6 +303,16 @@ export default function ScheduledTasksConfig() {
                                 )}
 
                                 <div className="flex space-x-2 pt-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleTriggerTask(task.id)}
+                                        disabled={triggerMutation.isPending}
+                                        className="flex-1 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors text-xs font-medium"
+                                    >
+                                        <Play className="w-3.5 h-3.5 mr-1.5"/>
+                                        触发
+                                    </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -344,7 +375,7 @@ export default function ScheduledTasksConfig() {
                             />
                             <label htmlFor="enabled"
                                    className="text-sm font-medium text-gray-700 cursor-pointer flex-1">
-                                创建后立即启用此任务
+                                启用此任务
                             </label>
                             <div
                                 className={`w-2 h-2 rounded-full ${formData.enabled ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -408,8 +439,8 @@ export default function ScheduledTasksConfig() {
                                 rows={3}
                                 className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none resize-none"
                             />
-                            <p className="text-xs text-gray-400 mt-1.5">
-                                将要发送的短信内容，支持 AT 指令
+                            <p className="text-xs text-red-400 mt-1.5">
+                                将要发送的短信内容，不支持 Emoji 等特殊字符。
                             </p>
                         </div>
                     </div>

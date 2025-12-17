@@ -18,7 +18,7 @@ export default function Layout() {
         {name: '短信记录', href: '/messages', icon: MessageSquare},
         {name: '串口控制', href: '/serial', icon: Smartphone},
         {name: '通知渠道', href: '/notifications', icon: Bell},
-        {name: '定时任务', href: '/scheduled-tasks', icon: Clock},
+        {name: '计划任务', href: '/scheduled-tasks', icon: Clock},
     ];
 
     // 获取版本信息
