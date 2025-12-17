@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/dushixiang/uart_sms_forwarder/internal/models"
 	"github.com/dushixiang/uart_sms_forwarder/internal/service"
@@ -133,7 +134,11 @@ func (h *PropertyHandler) TestNotificationChannel(c echo.Context) error {
 	case "feishu":
 		sendErr = h.notifier.SendFeishuByConfig(ctx, targetChannel.Config, message)
 	case "webhook":
-		sendErr = h.notifier.SendWebhookByConfig(ctx, targetChannel.Config, message)
+		sendErr = h.notifier.SendWebhookByConfig(ctx, targetChannel.Config, service.IncomingSMS{
+			From:      "13800001234",
+			Content:   message,
+			Timestamp: time.Now().Unix(),
+		})
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "不支持的通知渠道类型",

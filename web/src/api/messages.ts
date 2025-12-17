@@ -1,20 +1,19 @@
 import apiClient from './client';
-import type {ListResult, Stats} from './types';
-
-// 获取短信列表
-export const getMessages = (query?: URLSearchParams): Promise<ListResult> => {
-    let q = query?.toString();
-    return apiClient.get(`/messages?${q}`);
-};
+import type {ListResult, Stats, Conversation, TextMessage} from './types';
 
 // 获取统计信息
 export const getStats = (): Promise<Stats> => {
     return apiClient.get('/messages/stats');
 };
 
-// 获取单条短信
-export const getMessage = (id: string) => {
-    return apiClient.get(`/messages/${id}`);
+// 获取会话列表（按对方号码分组）
+export const getConversations = (): Promise<Conversation[]> => {
+    return apiClient.get('/messages/conversations');
+};
+
+// 获取指定会话的所有消息
+export const getConversationMessages = (peer: string): Promise<TextMessage[]> => {
+    return apiClient.get(`/messages/conversations/${encodeURIComponent(peer)}/messages`);
 };
 
 // 删除单条短信

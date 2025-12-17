@@ -47,7 +47,7 @@ export const saveNotificationChannels = async (channels: NotificationChannel[]):
 
 // 测试通知渠道（从数据库读取配置）
 export const testNotificationChannel = async (type: string): Promise<{ message: string }> => {
-    return await apiClient.post<{ message: string }>(`/admin/notification-channels/${type}/test`);
+    return await apiClient.post<{ message: string }>(`/notifications/${type}/test`);
 };
 
 export interface Version {

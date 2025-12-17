@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -107,7 +106,7 @@ func (n *Notifier) sendFeishu(ctx context.Context, webhook, message string) erro
 }
 
 // sendCustomWebhook 发送自定义Webhook
-func (n *Notifier) sendCustomWebhook(ctx context.Context, config map[string]interface{}, message string) error {
+func (n *Notifier) sendCustomWebhook(ctx context.Context, config map[string]interface{}, sms IncomingSMS) error {
 	// 解析配置
 	webhookURL, ok := config["url"].(string)
 	if !ok || webhookURL == "" {
@@ -130,75 +129,41 @@ func (n *Notifier) sendCustomWebhook(ctx context.Context, config map[string]inte
 		}
 	}
 
-	// 获取请求体模板类型，默认 json
-	bodyTemplate := "json"
-	if bt, ok := config["bodyTemplate"].(string); ok && bt != "" {
-		bodyTemplate = bt
+	customBody, ok := config["body"].(string)
+	if !ok || customBody == "" {
+		return fmt.Errorf("自定义Webhook配置缺少 body")
 	}
 
-	// 根据模板类型构建请求体
-	var reqBody io.Reader
-	var contentType string
-
-	switch bodyTemplate {
-	case "json":
-		// JSON 格式
-		body := map[string]interface{}{
-			"msg_type": "text",
-			"text": map[string]string{
-				"content": message,
-			},
-		}
-		data, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("序列化 JSON 失败: %w", err)
-		}
-		reqBody = bytes.NewReader(data)
-		contentType = "application/json"
-
-	case "form":
-		// Form 表单格式
-		formData := url.Values{}
-		formData.Set("message", message)
-		reqBody = strings.NewReader(formData.Encode())
-		contentType = "application/x-www-form-urlencoded"
-
-	case "custom":
-		// 自定义模板，支持变量替换
-		customBody, ok := config["customBody"].(string)
-		if !ok || customBody == "" {
-			return fmt.Errorf("使用 custom 模板时必须提供 customBody")
-		}
-
-		// 使用 fasttemplate 进行变量替换
-		t := fasttemplate.New(customBody, "{{", "}}")
-		escape := func(s string) string {
-			b, _ := json.Marshal(s)
-			// json.Marshal 会返回带双引号的字符串，例如 "hello\nworld"
-			// 模板中不需要外层双引号，所以去掉
-			return string(b[1 : len(b)-1])
-		}
-
-		bodyStr := t.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
-			var v string
-
-			switch tag {
-			case "message":
-				v = message
-			default:
-				return w.Write([]byte("{{" + tag + "}}"))
-			}
-
-			// 写入 JSON 安全转义后的值
-			return w.Write([]byte(escape(v)))
-		})
-		n.logger.Sugar().Debugf("自定义Webhook请求体: %s", bodyStr)
-		reqBody = strings.NewReader(bodyStr)
-		contentType = "text/plain"
-
-	default:
-		return fmt.Errorf("不支持的 bodyTemplate: %s", bodyTemplate)
+	// 使用 fasttemplate 进行变量替换
+	t := fasttemplate.New(customBody, "{{", "}}")
+	escape := func(s string) string {
+		b, _ := json.Marshal(s)
+		// json.Marshal 会返回带双引号的字符串，例如 "hello\nworld"
+		// 模板中不需要外层双引号，所以去掉
+		return string(b[1 : len(b)-1])
 	}
+
+	bodyStr := t.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
+		var v string
+
+		switch tag {
+		case "from":
+			v = sms.From
+		case "content":
+			v = sms.Content
+		case "timestamp":
+			timestamp := time.Unix(sms.Timestamp, 0).Format(time.DateTime)
+			v = timestamp
+		default:
+			return w.Write([]byte("{{" + tag + "}}"))
+		}
+
+		// 写入 JSON 安全转义后的值
+		return w.Write([]byte(escape(v)))
+	})
+	n.logger.Sugar().Debugf("自定义Webhook请求体: %s", bodyStr)
+	var reqBody = strings.NewReader(bodyStr)
+	var contentType = "text/plain"
 
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, method, webhookURL, reqBody)
@@ -334,6 +299,6 @@ func (n *Notifier) SendFeishuByConfig(ctx context.Context, config map[string]int
 }
 
 // SendWebhookByConfig 导出方法供外部调用（测试用）
-func (n *Notifier) SendWebhookByConfig(ctx context.Context, config map[string]interface{}, message string) error {
-	return n.sendCustomWebhook(ctx, config, message)
+func (n *Notifier) SendWebhookByConfig(ctx context.Context, config map[string]interface{}, sms IncomingSMS) error {
+	return n.sendCustomWebhook(ctx, config, sms)
 }

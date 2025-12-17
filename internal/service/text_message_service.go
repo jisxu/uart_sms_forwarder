@@ -35,6 +35,14 @@ type Stats struct {
 	TodayCount    int64 `json:"todayCount"`
 }
 
+// Conversation 会话信息
+type Conversation struct {
+	Peer         string              `json:"peer"`         // 对方号码
+	LastMessage  *models.TextMessage `json:"lastMessage"`  // 最后一条消息
+	MessageCount int64               `json:"messageCount"` // 消息总数
+	UnreadCount  int64               `json:"unreadCount"`  // 未读数量（暂时为0）
+}
+
 // Save 保存短信记录
 func (s *TextMessageService) Save(ctx context.Context, msg *models.TextMessage) error {
 	if err := s.repo.Save(ctx, msg); err != nil {
@@ -99,9 +107,9 @@ func (s *TextMessageService) GetStats(ctx context.Context) (*Stats, error) {
 		return nil, fmt.Errorf("统计发送数量失败: %w", err)
 	}
 
-	// 今日数量（按 timestamp 字段）
+	// 今日数量（按 created_at 字段）
 	todayStart := time.Now().Truncate(24 * time.Hour).UnixMilli()
-	if err := db.Model(&models.TextMessage{}).Where("timestamp >= ?", todayStart).Count(&stats.TodayCount).Error; err != nil {
+	if err := db.Model(&models.TextMessage{}).Where("created_at >= ?", todayStart).Count(&stats.TodayCount).Error; err != nil {
 		return nil, fmt.Errorf("统计今日数量失败: %w", err)
 	}
 
@@ -112,4 +120,87 @@ func (s *TextMessageService) UpdateStatusById(ctx context.Context, id string, st
 	return s.repo.UpdateColumnsById(ctx, id, map[string]interface{}{
 		"status": status,
 	})
+}
+
+// GetConversations 获取会话列表（按对方号码分组）
+func (s *TextMessageService) GetConversations(ctx context.Context) ([]*Conversation, error) {
+	db := s.repo.GetDB(ctx)
+
+	// 获取所有短信记录，按创建时间倒序
+	var messages []models.TextMessage
+	if err := db.Order("created_at DESC").Find(&messages).Error; err != nil {
+		s.logger.Error("获取短信记录失败", zap.Error(err))
+		return nil, fmt.Errorf("获取短信记录失败: %w", err)
+	}
+
+	// 按对方号码分组
+	conversationMap := make(map[string]*Conversation)
+	for i := range messages {
+		msg := &messages[i]
+
+		// 确定对方号码
+		var peer string
+		if msg.Type == models.MessageTypeIncoming {
+			peer = msg.From
+		} else {
+			peer = msg.To
+		}
+
+		if peer == "" {
+			continue
+		}
+
+		// 如果会话不存在，创建新会话
+		if _, exists := conversationMap[peer]; !exists {
+			conversationMap[peer] = &Conversation{
+				Peer:         peer,
+				LastMessage:  msg,
+				MessageCount: 0,
+				UnreadCount:  0,
+			}
+		}
+
+		// 更新消息数量
+		conversationMap[peer].MessageCount++
+
+		// 更新最后一条消息（取最新的）
+		if msg.CreatedAt > conversationMap[peer].LastMessage.CreatedAt {
+			conversationMap[peer].LastMessage = msg
+		}
+	}
+
+	// 转换为切片并按最后消息时间排序
+	conversations := make([]*Conversation, 0, len(conversationMap))
+	for _, conv := range conversationMap {
+		conversations = append(conversations, conv)
+	}
+
+	// 按最后消息时间倒序排序
+	for i := 0; i < len(conversations)-1; i++ {
+		for j := i + 1; j < len(conversations); j++ {
+			if conversations[i].LastMessage.CreatedAt < conversations[j].LastMessage.CreatedAt {
+				conversations[i], conversations[j] = conversations[j], conversations[i]
+			}
+		}
+	}
+
+	return conversations, nil
+}
+
+// GetConversationMessages 获取指定会话的所有消息
+func (s *TextMessageService) GetConversationMessages(ctx context.Context, peer string) ([]models.TextMessage, error) {
+	db := s.repo.GetDB(ctx)
+
+	var messages []models.TextMessage
+
+	// 查询条件：(type=incoming AND from=peer) OR (type=outgoing AND to=peer)
+	if err := db.Where("(type = ? AND \"from\" = ?) OR (type = ? AND \"to\" = ?)",
+		models.MessageTypeIncoming, peer,
+		models.MessageTypeOutgoing, peer,
+	).Order("created_at ASC").Find(&messages).Error; err != nil {
+		s.logger.Error("获取会话消息失败", zap.Error(err), zap.String("peer", peer))
+		return nil, fmt.Errorf("获取会话消息失败: %w", err)
+	}
+
+	return messages, nil
 }

@@ -2,11 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/dushixiang/uart_sms_forwarder/internal/repo"
 	"github.com/dushixiang/uart_sms_forwarder/internal/service"
 
-	"github.com/go-orz/orz"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
@@ -25,48 +25,6 @@ func NewTextMessageHandler(logger *zap.Logger, service *service.TextMessageServi
 		service: service,
 		repo:    repo,
 	}
-}
-
-// List 查询短信列表
-func (h *TextMessageHandler) List(c echo.Context) error {
-
-	// 执行分页查询
-	ctx := c.Request().Context()
-	pr := orz.GetPageRequest(c, "createdAt")
-
-	builder := orz.NewPageBuilder(h.repo).
-		PageRequest(pr).
-		Equal("type", c.QueryParam("type")).
-		Equal("status", c.QueryParam("status")).
-		Contains("from", c.QueryParam("from")).
-		Contains("to", c.QueryParam("to")).
-		Contains("content", c.QueryParam("content"))
-
-	page, err := builder.Execute(ctx)
-	if err != nil {
-		return err
-	}
-
-	// 返回完整密钥,由前端控制显示/隐藏
-	return orz.Ok(c, orz.Map{
-		"items": page.Items,
-		"total": page.Total,
-	})
-}
-
-// Get 获取单条短信
-// GET /api/messages/:id
-func (h *TextMessageHandler) Get(c echo.Context) error {
-	id := c.Param("id")
-	msg, err := h.service.Get(c.Request().Context(), id)
-	if err != nil {
-		h.logger.Error("获取短信失败", zap.Error(err), zap.String("id", id))
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "短信不存在",
-		})
-	}
-
-	return c.JSON(http.StatusOK, msg)
 }
 
 // Delete 删除单条短信
@@ -115,4 +73,51 @@ func (h *TextMessageHandler) GetStats(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, stats)
+}
+
+// GetConversations 获取会话列表
+// GET /api/messages/conversations
+func (h *TextMessageHandler) GetConversations(c echo.Context) error {
+	conversations, err := h.service.GetConversations(c.Request().Context())
+	if err != nil {
+		h.logger.Error("获取会话列表失败", zap.Error(err))
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "获取会话列表失败",
+		})
+	}
+
+	return c.JSON(http.StatusOK, conversations)
+}
+
+// GetConversationMessages 获取指定会话的所有消息
+// GET /api/messages/conversations/:peer/messages
+func (h *TextMessageHandler) GetConversationMessages(c echo.Context) error {
+	peer := c.Param("peer")
+	if peer == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "peer 参数不能为空",
+		})
+	}
+
+	// 手动 URL 解码以处理特殊字符（如 + 号）
+	decodedPeer, err := url.QueryUnescape(peer)
+	if err != nil {
+		h.logger.Error("URL 解码失败", zap.Error(err), zap.String("peer", peer))
+		// 如果解码失败，使用原始值
+		decodedPeer = peer
+	}
+
+	h.logger.Debug("获取会话消息",
+		zap.String("peer_raw", peer),
+		zap.String("peer_decoded", decodedPeer))
+
+	messages, err := h.service.GetConversationMessages(c.Request().Context(), decodedPeer)
+	if err != nil {
+		h.logger.Error("获取会话消息失败", zap.Error(err), zap.String("peer", decodedPeer))
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "获取会话消息失败",
+		})
+	}
+
+	return c.JSON(http.StatusOK, messages)
 }

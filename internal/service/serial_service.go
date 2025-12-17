@@ -533,7 +533,7 @@ func (s *SerialService) sendNotification(ctx context.Context, sms IncomingSMS) {
 		case "feishu":
 			sendErr = s.notifier.SendFeishuByConfig(ctx, channel.Config, message)
 		case "webhook":
-			sendErr = s.notifier.SendWebhookByConfig(ctx, channel.Config, message)
+			sendErr = s.notifier.SendWebhookByConfig(ctx, channel.Config, sms)
 		}
 
 		if sendErr != nil {

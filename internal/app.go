@@ -188,9 +188,9 @@ func setupApi(app *orz.App, handlers *Handlers, appConfig *config.AppConfig, log
 	api.POST("/notifications/:type/test", handlers.Property.TestNotificationChannel)
 
 	// TextMessage API
-	api.GET("/messages", handlers.TextMessage.List)
 	api.GET("/messages/stats", handlers.TextMessage.GetStats)
-	api.GET("/messages/:id", handlers.TextMessage.Get)
+	api.GET("/messages/conversations", handlers.TextMessage.GetConversations)
+	api.GET("/messages/conversations/:peer/messages", handlers.TextMessage.GetConversationMessages)
 	api.DELETE("/messages/:id", handlers.TextMessage.Delete)
 	api.DELETE("/messages", handlers.TextMessage.Clear)
 
