@@ -64,7 +64,6 @@ export default function Messages() {
     const sendSMSMutation = useMutation({
         mutationFn: (data: { to: string; content: string }) => sendSMS(data),
         onSuccess: () => {
-            toast.success('短信发送成功');
             setInputText('');
             // 刷新会话列表和当前会话消息
             queryClient.invalidateQueries({queryKey: ['conversations']});

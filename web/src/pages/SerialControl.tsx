@@ -27,7 +27,7 @@ export default function SerialControl() {
     const sendSMSMutation = useMutation({
         mutationFn: (data: { to: string; content: string }) => serialApi.sendSMS(data),
         onSuccess: () => {
-            toast.success('短信发送成功');
+            toast.success('短信下发成功，等待确认...');
             setTo('');
             setContent('');
         },
