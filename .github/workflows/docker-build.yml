@@ -11,7 +11,7 @@ env:
   # 使用 GitHub Container Registry
   GHCR_REGISTRY: ghcr.io
   # 镜像名称（需要根据实际情况修改）
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: justinbacon/${{ github.event.repository.name }}
 
 jobs:
   build-and-push:
