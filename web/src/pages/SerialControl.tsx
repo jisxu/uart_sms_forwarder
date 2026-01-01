@@ -8,6 +8,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import type {DeviceStatus} from '@/api/types';
+import {formatUptime} from "@/utils/utils.ts";
 
 export default function SerialControl() {
     const [to, setTo] = useState('');
@@ -42,6 +43,18 @@ export default function SerialControl() {
         mutationFn: () => serialApi.resetStack(),
         onSuccess: () => {
             toast.success('协议栈已重启');
+        },
+        onError: (error) => {
+            console.error('操作失败:', error);
+            toast.error('操作失败');
+        },
+    });
+
+    // 重启模块 Mutation
+    const rebootMcuMutation = useMutation({
+        mutationFn: () => serialApi.rebootMcu(),
+        onSuccess: () => {
+            toast.success('模块重启命令已发送');
         },
         onError: (error) => {
             console.error('操作失败:', error);
@@ -127,11 +140,14 @@ export default function SerialControl() {
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <span className="text-xs text-gray-500">网络注册</span>
                                     <span className="text-sm font-medium">
-                    {mobile.is_registered ? (
-                        <span className="text-green-600">已注册</span>
-                    ) : (
-                        <span className="text-red-600">未注册</span>
-                    )}
+                                        {!mobile.is_registered ? (
+                                            <span className="text-red-600">未注册</span>
+                                        ) : mobile.is_roaming ? (
+                                            <span className="text-yellow-600">已注册（漫游）</span>
+                                        ) : (
+                                            <span className="text-green-600">已注册</span>
+                                        )}
+
                   </span>
                                 </div>
                                 <div className="pt-1">
@@ -257,6 +273,12 @@ export default function SerialControl() {
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center pb-2 border-b">
+                                        <span className="text-xs text-gray-500">开机时长</span>
+                                        <span className="text-sm font-medium">
+                                            {formatUptime(mobile.uptime)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b">
                                         <span className="text-xs text-gray-500">内存使用</span>
                                         <span className="text-sm font-medium">{deviceStatus.mem_kb.toFixed(2)} KB</span>
                                     </div>
@@ -296,6 +318,15 @@ export default function SerialControl() {
                                 >
                                     <RotateCcw className="w-3.5 h-3.5 mr-2"/>
                                     重启协议栈
+                                </Button>
+                                <Button
+                                    onClick={() => rebootMcuMutation.mutate()}
+                                    disabled={rebootMcuMutation.isPending || isFetching}
+                                    variant="outline"
+                                    className="w-full border-orange-300 text-orange-700 hover:bg-orange-50 h-9"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5 mr-2"/>
+                                    重启模块
                                 </Button>
                             </div>
                         </CardContent>

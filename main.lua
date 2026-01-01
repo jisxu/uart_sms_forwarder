@@ -8,7 +8,7 @@
 -- =================================================================================
 
 PROJECT = "uart_sms_forwarder"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 log.info("main", PROJECT, VERSION)
 
@@ -67,6 +67,9 @@ function get_mobile_info()
     end
 
     info.is_registered = (net_stat == 1 or net_stat == 5)
+    info.is_roaming = net_stat == 5
+    info.uptime = mcu.ticks2() -- 单位为秒
+
     return info
 end
 
@@ -141,6 +144,10 @@ function process_uart_command(cmd_data)
         mobile.setAuto(0)
         send_to_uart({type = "cmd_response", action = "reset_stack", result = "ok"})
 
+    elseif cmd_data.action == "reboot_mcu" then
+        log.info("CMD", "重启模块")
+        pm.reboot()
+        send_to_uart({type = "cmd_response", action = "reboot_mcu", result = "ok"})
     else
         send_to_uart({type = "error", msg = "unknown command"})
     end
